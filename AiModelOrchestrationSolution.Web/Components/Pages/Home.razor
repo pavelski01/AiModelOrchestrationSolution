@@ -1,0 +1,76 @@
+﻿@page "/"
+@using Microsoft.Extensions.AI
+@rendermode InteractiveServer
+
+<PageTitle>Home</PageTitle>
+
+<h1>AI Chat</h1>
+
+<p>Welcome to the AI-based chat!</p>
+
+<fieldset>
+    <legend>Model</legend>
+    <InputRadioGroup @bind-Value="_selectedClient">      
+        <label>
+            @OllamaClient1.Metadata.ModelId
+            <InputRadio Value="ServiceKeys.DeepSeek" />
+        </label>
+        <br />
+        <label>
+            @OllamaClient2.Metadata.ModelId
+            <InputRadio Value="ServiceKeys.Phi" />
+        </label>        
+    </InputRadioGroup>
+</fieldset>
+
+<p><input type="text" @bind-value="_prompt" />&nbsp;<button @onclick="GetPrompt">Ask</button></p>
+<p>@_response</p>
+
+@code {
+    private string _prompt = "";
+    private string _response = "";
+
+    private string? _selectedClient;
+
+    [Inject(Key = ServiceKeys.DeepSeek)]
+    public required IChatClient OllamaClient1 { get; set; }
+
+    [Inject(Key = ServiceKeys.Phi)]
+    public required IChatClient OllamaClient2 { get; set; }
+
+    private async Task GetPrompt()
+    {
+        var client = _selectedClient switch
+        {
+            ServiceKeys.DeepSeek => OllamaClient1,
+            ServiceKeys.Phi => OllamaClient2,
+            _ => null
+        };
+
+        if (!string.IsNullOrWhiteSpace(_prompt))
+        {
+            if (client is null)
+            {
+                _response = "No model selected";
+                return;
+            }
+
+            bool gotResponse = false;
+            _response = "Asking Ollama...";
+
+            var stream = client.CompleteStreamingAsync(_prompt);
+
+            await foreach (var answerToken in stream)
+            {
+                if (!gotResponse)
+                {
+                    _response = "";
+                    gotResponse = true;
+                }
+
+                _response += answerToken.Text;
+                StateHasChanged();
+            }
+        }
+    }
+}
