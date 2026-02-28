@@ -12,12 +12,12 @@
     <legend>Model</legend>
     <InputRadioGroup @bind-Value="_selectedClient">      
         <label>
-            @OllamaClient1.Metadata.ModelId
+            <span>DeepSeek</span>
             <InputRadio Value="ServiceKeys.DeepSeek" />
         </label>
         <br />
         <label>
-            @OllamaClient2.Metadata.ModelId
+            <span>Phi</span>
             <InputRadio Value="ServiceKeys.Phi" />
         </label>        
     </InputRadioGroup>
@@ -58,7 +58,7 @@
             bool gotResponse = false;
             _response = "Asking Ollama...";
 
-            var stream = client.CompleteStreamingAsync(_prompt);
+            var stream = client.GetStreamingResponseAsync(_prompt);
 
             await foreach (var answerToken in stream)
             {

@@ -1,7 +1,7 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
 var ollama = builder.AddOllama("ollama")
-    .WithGPUSupport()
+    //.WithGPUSupport()
     .WithDataVolume()
     .WithOpenWebUI();
     
