@@ -13,6 +13,7 @@ builder.Services.AddOutputCache();
 
 builder.AddKeyedOllamaApiClient(ServiceKeys.DeepSeek).AddKeyedChatClient(ServiceKeys.DeepSeek);
 builder.AddKeyedOllamaApiClient(ServiceKeys.Phi).AddKeyedChatClient(ServiceKeys.Phi);
+builder.AddKeyedOllamaApiClient(ServiceKeys.Llama).AddKeyedChatClient(ServiceKeys.Llama);
 
 var app = builder.Build();
 

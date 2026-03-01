@@ -1,5 +1,7 @@
 ﻿@page "/"
+@using AiModelOrchestrationSolution.Web.Model
 @using Microsoft.Extensions.AI
+@using OllamaSharp
 @rendermode InteractiveServer
 
 <PageTitle>Home</PageTitle>
@@ -26,24 +28,32 @@
 <p><input type="text" @bind-value="_prompt" />&nbsp;<button @onclick="GetPrompt">Ask</button></p>
 <p>@_response</p>
 
-@code {
+<h1>Receipt assistant</h1>
+
+<p><button @onclick="ProcessReceipt">Process</button></p>
+
+@code 
+{
     private string _prompt = "";
     private string _response = "";
 
     private string? _selectedClient;
 
     [Inject(Key = ServiceKeys.DeepSeek)]
-    public required IChatClient OllamaClient1 { get; set; }
+    public required IChatClient DeepSeekClient { get; set; }
 
     [Inject(Key = ServiceKeys.Phi)]
-    public required IChatClient OllamaClient2 { get; set; }
+    public required IChatClient PhiClient { get; set; }
+
+    [Inject(Key = ServiceKeys.Llama)]
+    public required IChatClient LlamaClient { get; set; }
 
     private async Task GetPrompt()
     {
         var client = _selectedClient switch
         {
-            ServiceKeys.DeepSeek => OllamaClient1,
-            ServiceKeys.Phi => OllamaClient2,
+            ServiceKeys.DeepSeek => DeepSeekClient,
+            ServiceKeys.Phi => PhiClient,
             _ => null
         };
 
@@ -71,6 +81,106 @@
                 _response += answerToken.Text;
                 StateHasChanged();
             }
+        }
+    }
+
+    private ChatMessage systemMessage = new ChatMessage(
+        ChatRole.System,
+        """
+        You are a receipt parsing assistant. Extract all line items from the receipt image.
+        For each line item, extract the name, quantity, unit price, and total price.
+        Quantity can be a decimal number (e.g. weight in kg like 0.550 or 1.105).
+        Extract the subtotal which is the final total amount shown on the receipt.
+        IMPORTANT: Read every digit exactly as printed on the receipt.
+        Pay very close attention to each decimal digit - do NOT round or approximate.
+        For example, if the receipt shows 1.105, report exactly 1.105, not 1.1 or 1.2.
+        Verify that quantity * unitPrice = totalPrice for each line item.
+        Don't invent items that aren't on the receipt.
+        Receipt is in polish language
+
+        DECIMAL FORMAT: Receipts may use different number formats depending on locale.
+        - Some use period as decimal separator: 7,499.00 (seven thousand four hundred ninety-nine)
+        - Some use comma as decimal separator: 7.499,00 (seven thousand four hundred ninety-nine)
+        First, detect which format the receipt uses by examining the numbers on it.
+        Then, always output numbers in the JSON using a period as the decimal separator.
+        For example: 7499.00, not 7.499,00 or 7,499.00.
+        
+        RECEIPT COMPONENTS:
+        Seller’s name and address
+        Seller’s Tax Identification Number (NIP)
+        Cash register number
+        Date and time of sale
+        Receipt number
+        Names of purchased goods/services
+        Quantity and unit price
+        Gross value (price including VAT)
+        VAT rate (e.g., 23%, 8%, 5%, 0%, exempt)
+        Total amount to pay
+        Method of payment (cash/card)
+        Fiscal logo and unique cash register number
+        """
+    );
+
+    private ChatMessage message = new ChatMessage(
+        ChatRole.User,
+        """
+        Extract all line items from this receipt.
+        Respond in JSON format with this structure:
+        {
+            "items": 
+            [
+                {
+                    "name": "item name",
+                    "quantity": 1.500,
+                    "unitPrice": 0.00,
+                    "totalPrice": 0.00
+                }
+            ],
+            "subtotal": 0.00
+        }
+        """
+    );
+
+    private async Task ProcessReceipt()
+    {
+        message.Contents.Add(new DataContent(File.ReadAllBytes("Receipts/receipt1.jpg"), "image/jpg"));
+
+        const int runs = 5;
+        Console.WriteLine($"\n--- Consistency test ({runs} runs) ---");
+
+        var results = new List<Receipt>();
+        for (int i = 0; i < runs; i++)
+        {
+            Console.WriteLine($"\nRun {i + 1}...");
+            var testResponse = await LlamaClient.GetResponseAsync<Receipt>(
+                [systemMessage, message],
+                new ChatOptions { Temperature = 0 });
+
+            if (testResponse.Result is { } r)
+            {
+                results.Add(r);
+                Console.WriteLine($"  Items: {r.Items.Count}, Subtotal: {r.Subtotal:C}");
+                foreach (var item in r.Items)
+                {
+                    Console.WriteLine(
+                        $"    {item.Name} - Qty: {item.Quantity} x {item.UnitPrice:C} = {item.TotalPrice:C}");
+                }
+            }
+        }
+
+        Console.WriteLine("\n--- Comparison ---");
+        var baseline = results[0];
+        for (int i = 1; i < results.Count; i++)
+        {
+            bool match = baseline.Subtotal == results[i].Subtotal
+                         && baseline.Items.Count == results[i].Items.Count
+                         && baseline.Items.Zip(results[i].Items).All(pair =>
+                             pair.First.Name == pair.Second.Name
+                             && pair.First.Quantity == pair.Second.Quantity
+                             && pair.First.UnitPrice == pair.Second.UnitPrice
+                             && pair.First.TotalPrice == pair.Second.TotalPrice);
+
+            Console.WriteLine($"  Run 1 vs Run {i + 1}: {(match ? "MATCH" : "DIFFERENT")}");
         }
     }
 }
