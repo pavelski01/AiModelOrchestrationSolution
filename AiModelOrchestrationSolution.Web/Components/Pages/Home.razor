@@ -96,7 +96,9 @@
         For example, if the receipt shows 1.105, report exactly 1.105, not 1.1 or 1.2.
         Verify that quantity * unitPrice = totalPrice for each line item.
         Don't invent items that aren't on the receipt.
-        Receipt is in polish language
+        Receipt is in polish language. 
+        Polish diacritics that are used on the receipt just replace with latin letters, 
+        so for example "ł" write as "l", "ą" write as "a", "ę" write as "e", "ó" write as "o" etc.
 
         DECIMAL FORMAT: Receipts may use different number formats depending on locale.
         - Some use period as decimal separator: 7,499.00 (seven thousand four hundred ninety-nine)
@@ -118,6 +120,18 @@
         Total amount to pay
         Method of payment (cash/card)
         Fiscal logo and unique cash register number
+
+        NOTES: The receipt may include information about taxable sales,
+        the individual letters indicate the VAT rates as follows:
+        Letter "A": Standard VAT rate (23% or 22%) (Sp.op.A).
+        Letter "B": First reduced VAT rate (8% or 7%) (Sp.op.B).
+        Letter "C": Second reduced VAT rate (5%) (Sp.op.C).
+        Letter "D": Third reduced VAT rate (0%) (Sp.op.D).
+        Letter "E": VAT exemption (Sp.op.E)
+
+        NOT INCLUDE (Skip):
+        Sp.op.A, Sp.op.B, Sp.op.C, Sp.op.D, Sp.op.E,
+        PTU A, PTU B, PTU C, PTU D, PTU E, SUMA PTU, ZAPLACONO GOTOWKA
         """
     );
 
