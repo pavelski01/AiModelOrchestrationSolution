@@ -2,6 +2,8 @@
 @using AiModelOrchestrationSolution.Web.Model
 @using Microsoft.Extensions.AI
 @using OllamaSharp
+@inject IWebHostEnvironment Environment
+@inject ILogger<Home> Logger
 @rendermode InteractiveServer
 
 <PageTitle>Home</PageTitle>
@@ -32,10 +34,13 @@
 
 <p><button @onclick="ProcessReceipt">Process</button></p>
 
+<button onclick="document.getElementById('fileInput').click()">Click to upload</button>
+<InputFile id="fileInput" OnChange="LoadFile" accept=".jpg,.png" style="display:none" multiple />
+
 @code 
 {
-    private string _prompt = "";
-    private string _response = "";
+    private string _prompt = string.Empty;
+    private string _response = string.Empty;
 
     private string? _selectedClient;
 
@@ -106,7 +111,7 @@
         First, detect which format the receipt uses by examining the numbers on it.
         Then, always output numbers in the JSON using a period as the decimal separator.
         For example: 7499.00, not 7.499,00 or 7,499.00.
-        
+
         RECEIPT COMPONENTS:
         Seller’s name and address
         Seller’s Tax Identification Number (NIP)
@@ -195,6 +200,36 @@
                              && pair.First.TotalPrice == pair.Second.TotalPrice);
 
             Console.WriteLine($"  Run 1 vs Run {i + 1}: {(match ? "MATCH" : "DIFFERENT")}");
+        }
+    }
+
+    private List<IBrowserFile> loadedFiles = [];
+    private long maxFileSize = 1024 * 15;
+    private int maxAllowedFiles = 3;
+
+    private async Task LoadFile(InputFileChangeEventArgs eventArguments)
+    {
+        foreach (var file in eventArguments.GetMultipleFiles(maxAllowedFiles))
+        {
+            try
+            {
+                var trustedFileName = Path.GetRandomFileName().Replace(".", string.Empty);
+                var path =
+                    Path.Combine(
+                        Environment.ContentRootPath,
+                        Environment.EnvironmentName,
+                        "Uploads",
+                        trustedFileName);
+
+                await using FileStream fs = new(path, FileMode.Create);
+                await file.OpenReadStream(maxFileSize).CopyToAsync(fs);
+
+                loadedFiles.Add(file);
+            }
+            catch (Exception ex)
+            {
+
+            }
         }
     }
 }
