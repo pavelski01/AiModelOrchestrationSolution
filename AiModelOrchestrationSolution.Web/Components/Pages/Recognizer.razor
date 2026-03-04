@@ -1,36 +1,16 @@
-﻿@page "/"
+@page "/recognizer"
 @using AiModelOrchestrationSolution.Web.Model
 @using Microsoft.Extensions.AI
 @using OllamaSharp
 @inject IWebHostEnvironment Environment
-@inject ILogger<Home> Logger
+@inject ILogger<Recognizer> Logger
 @rendermode InteractiveServer
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Receipt Recognizer</PageTitle>
 
-<h1>AI Chat</h1>
+<h1>Receipt Assistant</h1>
 
-<p>Welcome to the AI-based chat!</p>
-
-<fieldset>
-    <legend>Model</legend>
-    <InputRadioGroup @bind-Value="_selectedClient">      
-        <label>
-            <span>DeepSeek</span>
-            <InputRadio Value="ServiceKeys.DeepSeek" />
-        </label>
-        <br />
-        <label>
-            <span>Phi</span>
-            <InputRadio Value="ServiceKeys.Phi" />
-        </label>        
-    </InputRadioGroup>
-</fieldset>
-
-<p><input type="text" @bind-value="_prompt" />&nbsp;<button @onclick="GetPrompt">Ask</button></p>
-<p>@_response</p>
-
-<h1>Receipt assistant</h1>
+<p>Upload and process receipt images to extract line items and pricing information.</p>
 
 <p><button @onclick="ProcessReceipt">Process</button></p>
 
@@ -39,55 +19,8 @@
 
 @code 
 {
-    private string _prompt = string.Empty;
-    private string _response = string.Empty;
-
-    private string? _selectedClient;
-
-    [Inject(Key = ServiceKeys.DeepSeek)]
-    public required IChatClient DeepSeekClient { get; set; }
-
-    [Inject(Key = ServiceKeys.Phi)]
-    public required IChatClient PhiClient { get; set; }
-
     [Inject(Key = ServiceKeys.Llama)]
     public required IChatClient LlamaClient { get; set; }
-
-    private async Task GetPrompt()
-    {
-        var client = _selectedClient switch
-        {
-            ServiceKeys.DeepSeek => DeepSeekClient,
-            ServiceKeys.Phi => PhiClient,
-            _ => null
-        };
-
-        if (!string.IsNullOrWhiteSpace(_prompt))
-        {
-            if (client is null)
-            {
-                _response = "No model selected";
-                return;
-            }
-
-            bool gotResponse = false;
-            _response = "Asking Ollama...";
-
-            var stream = client.GetStreamingResponseAsync(_prompt);
-
-            await foreach (var answerToken in stream)
-            {
-                if (!gotResponse)
-                {
-                    _response = "";
-                    gotResponse = true;
-                }
-
-                _response += answerToken.Text;
-                StateHasChanged();
-            }
-        }
-    }
 
     private ChatMessage systemMessage = new ChatMessage(
         ChatRole.System,
@@ -113,8 +46,8 @@
         For example: 7499.00, not 7.499,00 or 7,499.00.
 
         RECEIPT COMPONENTS:
-        Seller’s name and address
-        Seller’s Tax Identification Number (NIP)
+        Seller's name and address
+        Seller's Tax Identification Number (NIP)
         Cash register number
         Date and time of sale
         Receipt number
@@ -165,12 +98,15 @@
         message.Contents.Add(new DataContent(File.ReadAllBytes("Receipts/receipt1.jpg"), "image/jpg"));
 
         const int runs = 5;
-        Console.WriteLine($"\n--- Consistency test ({runs} runs) ---");
+
+        Console.WriteLine();
+        Console.WriteLine($"--- Consistency test ({runs} runs) ---");
 
         var results = new List<Receipt>();
         for (int i = 0; i < runs; i++)
         {
-            Console.WriteLine($"\nRun {i + 1}...");
+            Console.WriteLine();
+            Console.WriteLine($"Run {i + 1}...");
             var testResponse = await LlamaClient.GetResponseAsync<Receipt>(
                 [systemMessage, message],
                 new ChatOptions { Temperature = 0 });
@@ -187,17 +123,21 @@
             }
         }
 
-        Console.WriteLine("\n--- Comparison ---");
+        Console.WriteLine();
+        Console.WriteLine("--- Comparison ---");
+
         var baseline = results[0];
         for (int i = 1; i < results.Count; i++)
         {
-            bool match = baseline.Subtotal == results[i].Subtotal
-                         && baseline.Items.Count == results[i].Items.Count
-                         && baseline.Items.Zip(results[i].Items).All(pair =>
-                             pair.First.Name == pair.Second.Name
-                             && pair.First.Quantity == pair.Second.Quantity
-                             && pair.First.UnitPrice == pair.Second.UnitPrice
-                             && pair.First.TotalPrice == pair.Second.TotalPrice);
+            bool match = 
+                baseline.Subtotal == results[i].Subtotal
+                && baseline.Items.Count == results[i].Items.Count
+                && baseline.Items.Zip(results[i].Items).All(
+                    pair =>
+                    pair.First.Name == pair.Second.Name
+                    && pair.First.Quantity == pair.Second.Quantity
+                    && pair.First.UnitPrice == pair.Second.UnitPrice
+                    && pair.First.TotalPrice == pair.Second.TotalPrice);
 
             Console.WriteLine($"  Run 1 vs Run {i + 1}: {(match ? "MATCH" : "DIFFERENT")}");
         }
@@ -206,23 +146,29 @@
     private List<IBrowserFile> loadedFiles = [];
     private long maxFileSize = 1024 * 15;
     private int maxAllowedFiles = 3;
+    private string[] allowedTypes = new[] { "image/jpeg", "image/png" };
 
     private async Task LoadFile(InputFileChangeEventArgs eventArguments)
     {
+        if (eventArguments.FileCount > maxAllowedFiles)
+        {
+            return;
+        }
         foreach (var file in eventArguments.GetMultipleFiles(maxAllowedFiles))
         {
+            if (!allowedTypes.Contains(file.ContentType))
+            {
+                return;
+            }
+            var extension = GetExtensionFromMime(file.ContentType);
+            var fileName = $"{Path.GetRandomFileName().Replace(".", string.Empty)}{extension}";
+            var uploadPath = Path.Combine(Environment.WebRootPath, "Uploads");
+            Directory.CreateDirectory(uploadPath);
+
             try
             {
-                var trustedFileName = Path.GetRandomFileName().Replace(".", string.Empty);
-                var path =
-                    Path.Combine(
-                        Environment.ContentRootPath,
-                        Environment.EnvironmentName,
-                        "Uploads",
-                        trustedFileName);
-
-                await using FileStream fs = new(path, FileMode.Create);
-                await file.OpenReadStream(maxFileSize).CopyToAsync(fs);
+                await using var stream = new FileStream(uploadPath, FileMode.Create);
+                await file.OpenReadStream(maxFileSize).CopyToAsync(stream);
 
                 loadedFiles.Add(file);
             }
@@ -232,4 +178,13 @@
             }
         }
     }
+
+    private string GetExtensionFromMime(string mimeType) => mimeType switch
+    {
+        "image/jpeg" => ".jpg",
+        "image/png" => ".png",
+        "image/gif" => ".gif",
+        "image/webp" => ".webp",
+        _ => ".bin"
+    };
 }

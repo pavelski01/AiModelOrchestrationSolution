@@ -1,0 +1,83 @@
+@page "/"
+@page "/chat"
+@using AiModelOrchestrationSolution.Web.Model
+@using Microsoft.Extensions.AI
+@using OllamaSharp
+@inject IWebHostEnvironment Environment
+@inject ILogger<Chat> Logger
+@rendermode InteractiveServer
+
+<PageTitle>Chat</PageTitle>
+
+<h1>AI Chat</h1>
+
+<p>Welcome to the AI-based chat!</p>
+
+<fieldset>
+    <legend>Model</legend>
+    <InputRadioGroup @bind-Value="_selectedClient">      
+        <label>
+            <span>DeepSeek</span>
+            <InputRadio Value="ServiceKeys.DeepSeek" />
+        </label>
+        <br />
+        <label>
+            <span>Phi</span>
+            <InputRadio Value="ServiceKeys.Phi" />
+        </label>        
+    </InputRadioGroup>
+</fieldset>
+
+<p><input type="text" @bind-value="_prompt" />&nbsp;<button @onclick="GetPrompt">Ask</button></p>
+<p>@_response</p>
+
+@code 
+{
+    private string _prompt = string.Empty;
+    private string _response = string.Empty;
+
+    private string? _selectedClient;
+
+    [Inject(Key = ServiceKeys.DeepSeek)]
+    public required IChatClient DeepSeekClient { get; set; }
+
+    [Inject(Key = ServiceKeys.Phi)]
+    public required IChatClient PhiClient { get; set; }
+
+    private async Task GetPrompt()
+    {
+        var client = _selectedClient switch
+        {
+            ServiceKeys.DeepSeek => DeepSeekClient,
+            ServiceKeys.Phi => PhiClient,
+            _ => null
+        };
+
+        if (string.IsNullOrWhiteSpace(_prompt))
+        {
+            return;
+        }
+        if (client is null)
+        {
+            _response = "No model selected";
+            return;
+        }
+
+        bool isResponded = false;
+        _response = "Asking Ollama...";
+
+        var stream = client.GetStreamingResponseAsync(_prompt);
+
+        await foreach (var answerToken in stream)
+        {
+            if (!isResponded)
+            {
+                _response = string.Empty;
+                isResponded = true;
+            }
+
+            _response += answerToken.Text;
+            StateHasChanged();
+        }
+    }
+}
