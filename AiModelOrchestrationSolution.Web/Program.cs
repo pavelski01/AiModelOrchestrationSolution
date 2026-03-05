@@ -1,5 +1,6 @@
 using AiModelOrchestrationSolution.Web;
 using AiModelOrchestrationSolution.Web.Components;
+using AiModelOrchestrationSolution.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,6 +10,7 @@ builder.AddKeyedOllamaApiClient(ServiceKeys.DeepSeek).AddKeyedChatClient(Service
 builder.AddKeyedOllamaApiClient(ServiceKeys.Phi).AddKeyedChatClient(ServiceKeys.Phi);
 builder.AddKeyedOllamaApiClient(ServiceKeys.Llama).AddKeyedChatClient(ServiceKeys.Llama);
 
+builder.Services.AddScoped<ImageService>();
 builder.Services
     .AddRazorComponents()
     .AddInteractiveServerComponents();

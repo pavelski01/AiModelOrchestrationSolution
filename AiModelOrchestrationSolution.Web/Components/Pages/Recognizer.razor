@@ -1,9 +1,12 @@
 @page "/recognizer"
 @using AiModelOrchestrationSolution.Web.Model
+@using AiModelOrchestrationSolution.Web.Services
 @using Microsoft.Extensions.AI
 @using OllamaSharp
 @inject IWebHostEnvironment Environment
 @inject ILogger<Recognizer> Logger
+@inject ImageService ImageService
+@inject NavigationManager Navigation
 @rendermode InteractiveServer
 
 <PageTitle>Receipt Recognizer</PageTitle>
@@ -17,8 +20,49 @@
 <button onclick="document.getElementById('fileInput').click()">Click to upload</button>
 <InputFile id="fileInput" OnChange="LoadFile" accept=".jpg,.png" style="display:none" multiple />
 
+@if (!images.Any())
+{
+    <p>No images found in the folder.</p>
+}
+else
+{
+    <ul>
+        @foreach (var image in images)
+        {
+            <li @onclick="() => SelectImage(image)"
+                style="cursor:pointer; padding:4px; @(selectedImage == image ? "font-weight:bold; color:blue;" : "")">
+                🧾 @image
+            </li>
+        }
+    </ul>
+}
+
+@if (!string.IsNullOrEmpty(selectedImage))
+{
+    <div style="margin-top:16px;">
+        <h4>@selectedImage</h4>
+        <img src="@($"Uploads/{selectedImage}")"
+             alt="@selectedImage"
+             style="max-width:600px; max-height:450px; border:1px solid #ccc; border-radius:8px;" />
+    </div>
+}
+
 @code 
 {
+    private List<string> images = new();
+    private string selectedImage = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        images = ImageService.GetImagesFromFolder("Uploads");
+        selectedImage = images.FirstOrDefault() ?? string.Empty;
+    }
+
+    private void SelectImage(string imageName)
+    {
+        selectedImage = imageName;
+    }
+
     [Inject(Key = ServiceKeys.Llama)]
     public required IChatClient LlamaClient { get; set; }
 
@@ -143,8 +187,7 @@
         }
     }
 
-    private List<IBrowserFile> loadedFiles = [];
-    private long maxFileSize = 1024 * 15;
+    private long maxFileSize = 100 * 1024 * 1024;
     private int maxAllowedFiles = 3;
     private string[] allowedTypes = new[] { "image/jpeg", "image/png" };
 
@@ -160,31 +203,28 @@
             {
                 return;
             }
-            var extension = GetExtensionFromMime(file.ContentType);
-            var fileName = $"{Path.GetRandomFileName().Replace(".", string.Empty)}{extension}";
+            var extension = file.ContentType switch
+            {
+                "image/jpeg" => "jpg",
+                "image/png" => "png",
+                _ => "bin"
+            };
+            var fileName = $"{Path.GetRandomFileName().Replace(".", string.Empty)}.{extension}";
             var uploadPath = Path.Combine(Environment.WebRootPath, "Uploads");
             Directory.CreateDirectory(uploadPath);
+            uploadPath = Path.Combine(uploadPath, fileName);
 
             try
             {
                 await using var stream = new FileStream(uploadPath, FileMode.Create);
                 await file.OpenReadStream(maxFileSize).CopyToAsync(stream);
-
-                loadedFiles.Add(file);
             }
             catch (Exception ex)
             {
-
+                Logger.LogError(ex, "Error when processing selected file");
             }
+
+            Navigation.NavigateTo(Navigation.Uri, true);
         }
     }
-
-    private string GetExtensionFromMime(string mimeType) => mimeType switch
-    {
-        "image/jpeg" => ".jpg",
-        "image/png" => ".png",
-        "image/gif" => ".gif",
-        "image/webp" => ".webp",
-        _ => ".bin"
-    };
 }
