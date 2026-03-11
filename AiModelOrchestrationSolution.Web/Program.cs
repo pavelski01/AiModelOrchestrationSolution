@@ -30,7 +30,6 @@ app.UseHttpsRedirection();
 app.UseAntiforgery();
 
 app.UseStaticFiles();
-app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
+app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
 
 app.Run();

@@ -15,7 +15,7 @@
 
 <p>Upload and process receipt images to extract line items and pricing information.</p>
 
-<p><button @onclick="ProcessReceipt">Process</button></p>
+<p><button @onclick="ProcessReceipt" disabled="@string.IsNullOrEmpty(selectedImage)">Process</button></p>
 
 <button onclick="document.getElementById('fileInput').click()">Click to upload</button>
 <InputFile id="fileInput" OnChange="LoadFile" accept=".jpg,.png" style="display:none" multiple />

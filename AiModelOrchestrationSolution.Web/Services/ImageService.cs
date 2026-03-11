@@ -14,8 +14,7 @@ public class ImageService(IWebHostEnvironment env)
         }
 
         return Directory.GetFiles(folderPath)
-            .Where(f => new[] { ".jpg", ".jpeg", ".png" }.Contains(
-                Path.GetExtension(f).ToLower()))
+            .Where(f => new[] { ".jpg", ".jpeg", ".png" }.Contains(Path.GetExtension(f).ToLower()))
             .Select(Path.GetFileName)
             .OrderBy(f => f)
             .ToList()!;
