@@ -15,7 +15,7 @@
 
 <p>Upload and process receipt images to extract line items and pricing information.</p>
 
-<p><button @onclick="ProcessReceipt" disabled="@string.IsNullOrEmpty(selectedImage)">Process</button></p>
+<p><button @onclick="() => ProcessReceipt(selectedImage)" disabled="@string.IsNullOrEmpty(selectedImage)">Process</button></p>
 
 <button onclick="document.getElementById('fileInput').click()">Click to upload</button>
 <InputFile id="fileInput" OnChange="LoadFile" accept=".jpg,.png" style="display:none" multiple />
@@ -137,9 +137,10 @@ else
         """
     );
 
-    private async Task ProcessReceipt()
+    private async Task ProcessReceipt(string fileName)
     {
-        message.Contents.Add(new DataContent(File.ReadAllBytes("Receipts/receipt1.jpg"), "image/jpg"));
+
+        message.Contents.Add(new DataContent(File.ReadAllBytes($"wwwroot/Uploads/{fileName}"), $"image/{Path.GetExtension(fileName).Substring(1)}"));
 
         const int runs = 5;
 
