@@ -28,9 +28,9 @@ public static class Extensions
             // Turn on resilience by default
             http.AddStandardResilienceHandler(options =>
             {
-                options.TotalRequestTimeout.Timeout = TimeSpan.FromMinutes(10);
-                options.AttemptTimeout.Timeout = TimeSpan.FromMinutes(3);
-                options.CircuitBreaker.SamplingDuration = TimeSpan.FromMinutes(6);
+                options.TotalRequestTimeout.Timeout = TimeSpan.FromMinutes(20);
+                options.AttemptTimeout.Timeout = TimeSpan.FromMinutes(5);
+                options.CircuitBreaker.SamplingDuration = TimeSpan.FromMinutes(10);
                 options.Retry.MaxRetryAttempts = 2;
             });
 
