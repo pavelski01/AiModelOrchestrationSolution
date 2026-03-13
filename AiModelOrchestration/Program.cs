@@ -1,9 +1,11 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
+IResourceBuilder<OpenWebUIResource>? openWebUi = default;
+
 var ollama = builder.AddOllama("ollama")
     .WithGPUSupport()
     .WithDataVolume()
-    .WithOpenWebUI();
+    .WithOpenWebUI(owu => openWebUi = owu);
     
 var deepSeekModel = ollama.AddModel("deepseek", "deepseek-r1:1.5b");
 var phiModel = ollama.AddModel("phi", "phi3:3.8b");
@@ -14,6 +16,8 @@ builder.AddProject<Projects.AiModelOrchestrationSolution_Web>("web")
     .WithReference(deepSeekModel)
     .WithReference(phiModel)
     .WithReference(llamaModel)
+    .WaitFor(ollama)
+    .WaitFor(openWebUi ?? throw new InvalidOperationException("Cannot run Open Web UI"))
     .WaitFor(deepSeekModel)
     .WaitFor(phiModel)
     .WaitFor(llamaModel);

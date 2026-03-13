@@ -17,7 +17,11 @@
 
 <p>Upload and process receipt images to extract line items and pricing information.</p>
 
-<p><button @onclick="() => ProcessReceipt(selectedImage)" disabled="@(string.IsNullOrEmpty(selectedImage) || isProcessing)">Process</button></p>
+<div style="margin-bottom: 12px; display: flex; align-items: center; gap: 12px;">
+    <label for="runsInput" style="white-space: nowrap;">Consistency Test Runs:</label>
+    <input id="runsInput" type="number" min="1" max="10" @bind="consistencyRuns" disabled="@isProcessing" style="width: 60px;" />
+    <button @onclick="() => ProcessReceipt(selectedImage)" disabled="@(string.IsNullOrEmpty(selectedImage) || isProcessing)">Process</button>
+</div>
 
 <button onclick="document.getElementById('fileInput').click()">Click to upload</button>
 <InputFile id="fileInput" OnChange="LoadFile" accept=".jpg,.png" style="display:none" multiple />
@@ -63,6 +67,7 @@ else
     private string selectedImage = string.Empty;
     private string processResult = string.Empty;
     private bool isProcessing = false;
+    private int consistencyRuns = 3;
 
     protected override void OnInitialized()
     {
@@ -160,66 +165,61 @@ else
         isProcessing = true;
         StateHasChanged();
 
+        var stringBuilder = new StringBuilder();
         try
         {
-            var stringBuilder = new StringBuilder();
+            message.AdditionalProperties = new() { ["receipt-schema.json"] = File.ReadAllText("Metadata/receipt-schema.json") };
+            message.Contents.Add(new DataContent(File.ReadAllBytes($"wwwroot/Uploads/{fileName}"), $"image/{Path.GetExtension(fileName).Substring(1)}"));
 
-        message.AdditionalProperties = new() { ["receipt-schema.json"] = File.ReadAllText("Metadata/receipt-schema.json") };
-        message.Contents.Add(new DataContent(File.ReadAllBytes($"wwwroot/Uploads/{fileName}"), $"image/{Path.GetExtension(fileName).Substring(1)}"));
-
-        const int runs = 3;
-
-        stringBuilder.AppendLine();
-        stringBuilder.AppendLine($"--- Consistency test ({runs} runs) ---");
-
-        var results = new List<Receipt>();
-        for (int i = 0; i < runs; i++)
-        {
             stringBuilder.AppendLine();
-            stringBuilder.AppendLine($"Run {i + 1}...");
-            var testResponse = await LlamaClient.GetResponseAsync<Receipt>(
-                [systemMessage, message],
-                new ChatOptions { Temperature = 0 },
-                true);
+            stringBuilder.AppendLine($"--- Consistency test ({consistencyRuns} runs) ---");
 
-            if (testResponse.Result is { } receipt)
+            var results = new List<Receipt>();
+            for (int i = 0; i < consistencyRuns; i++)
             {
-                receipt.ToJson();
+                stringBuilder.AppendLine();
+                stringBuilder.AppendLine($"Run {i + 1}...");
+                var testResponse = await LlamaClient.GetResponseAsync<Receipt>(
+                    [systemMessage, message],
+                    new ChatOptions { Temperature = 0 },
+                    true);
 
-                results.Add(receipt);
-                stringBuilder.AppendLine($"  Items: {receipt.Items.Count}, Subtotal: {receipt.Subtotal:C}");
-                foreach (var item in receipt.Items)
+                if (testResponse.Result is { } receipt)
                 {
-                    stringBuilder.AppendLine(
-                        $"    {item.Name} - Qty: {item.Quantity} x {item.UnitPrice:C} = {item.TotalPrice:C}");
+                    receipt.ToJson();
+
+                    results.Add(receipt);
+                    stringBuilder.AppendLine($"  Items: {receipt.Items.Count}, Subtotal: {receipt.Subtotal:C}");
+                    foreach (var item in receipt.Items)
+                    {
+                        stringBuilder.AppendLine(
+                            $"    {item.Name} - Qty: {item.Quantity} x {item.UnitPrice:C} = {item.TotalPrice:C}");
+                    }
                 }
             }
-        }
 
-        stringBuilder.AppendLine();
-        stringBuilder.AppendLine("--- Comparison ---");
+            stringBuilder.AppendLine();
+            stringBuilder.AppendLine("--- Comparison ---");
 
-        var baseline = results[0];
-        for (int i = 1; i < results.Count; i++)
-        {
-            bool match = 
-                baseline.Subtotal == results[i].Subtotal
-                && baseline.Items.Count == results[i].Items.Count
-                && baseline.Items.Zip(results[i].Items).All(
-                    pair =>
-                    pair.First.Name == pair.Second.Name
-                    && pair.First.Quantity == pair.Second.Quantity
-                    && pair.First.UnitPrice == pair.Second.UnitPrice
-                    && pair.First.TotalPrice == pair.Second.TotalPrice);
+            var baseline = results[0];
+            for (int i = 1; i < results.Count; i++)
+            {
+                bool match = 
+                    baseline.Subtotal == results[i].Subtotal
+                    && baseline.Items.Count == results[i].Items.Count
+                    && baseline.Items.Zip(results[i].Items).All(
+                        pair =>
+                        pair.First.Name == pair.Second.Name
+                        && pair.First.Quantity == pair.Second.Quantity
+                        && pair.First.UnitPrice == pair.Second.UnitPrice
+                        && pair.First.TotalPrice == pair.Second.TotalPrice);
 
-            stringBuilder.AppendLine($"  Run 1 vs Run {i + 1}: {(match ? "MATCH" : "DIFFERENT")}");
-        }
-
-        processResult = stringBuilder.ToString();
-        StateHasChanged();
+                stringBuilder.AppendLine($"  Run 1 vs Run {i + 1}: {(match ? "MATCH" : "DIFFERENT")}");
+            }
         }
         finally
         {
+            processResult = stringBuilder.ToString();
             isProcessing = false;
             StateHasChanged();
         }
