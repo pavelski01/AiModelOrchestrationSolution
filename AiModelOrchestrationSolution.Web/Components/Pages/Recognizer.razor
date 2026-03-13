@@ -1,6 +1,7 @@
 @page "/recognizer"
 @using AiModelOrchestrationSolution.Web.Model
 @using AiModelOrchestrationSolution.Web.Services
+@using AiModelOrchestrationSolution.Web.Validators
 @using Microsoft.Extensions.AI
 @using OllamaSharp
 @using System.Text
@@ -71,6 +72,7 @@ else
     private void SelectImage(string imageName)
     {
         selectedImage = imageName;
+        StateHasChanged();
     }
 
     [Inject(Key = ServiceKeys.Llama)]
@@ -122,8 +124,12 @@ else
         Letter "E": VAT exemption (Sp.op.E)
 
         NOT INCLUDE (Skip):
-        Sp.op.A, Sp.op.B, Sp.op.C, Sp.op.D, Sp.op.E,
-        PTU A, PTU B, PTU C, PTU D, PTU E, SUMA PTU, 
+        Sp.op.A, Sprzed. opod. PTU A, PTU A,
+        Sp.op.B, Sprzed. opod. PTU B, PTU B,
+        Sp.op.C, Sprzed. opod. PTU C, PTU C,
+        Sp.op.D, Sprzed. opod. PTU D, PTU D,
+        Sp.op.E, Sprzed. opod. PTU E, PTU E,
+        SUMA PTU, 
         ZAPLACONO GOTOWKA PLN, ZAPŁACONO GOTOWKA PLN
         """
     );
@@ -152,6 +158,7 @@ else
     {
         var stringBuilder = new StringBuilder();
 
+        message.AdditionalProperties = new() { ["receipt-schema.json"] = File.ReadAllText("Metadata/receipt-schema.json") };
         message.Contents.Add(new DataContent(File.ReadAllBytes($"wwwroot/Uploads/{fileName}"), $"image/{Path.GetExtension(fileName).Substring(1)}"));
 
         const int runs = 3;
@@ -166,10 +173,13 @@ else
             stringBuilder.AppendLine($"Run {i + 1}...");
             var testResponse = await LlamaClient.GetResponseAsync<Receipt>(
                 [systemMessage, message],
-                new ChatOptions { Temperature = 0 });
+                new ChatOptions { Temperature = 0 },
+                true);
 
             if (testResponse.Result is { } receipt)
             {
+                receipt.ToJson();
+
                 results.Add(receipt);
                 stringBuilder.AppendLine($"  Items: {receipt.Items.Count}, Subtotal: {receipt.Subtotal:C}");
                 foreach (var item in receipt.Items)
@@ -200,6 +210,7 @@ else
         }
 
         processResult = stringBuilder.ToString();
+        StateHasChanged();
     }
 
     private long maxFileSize = 100 * 1024 * 1024;
