@@ -17,7 +17,7 @@
 
 <p>Upload and process receipt images to extract line items and pricing information.</p>
 
-<p><button @onclick="() => ProcessReceipt(selectedImage)" disabled="@string.IsNullOrEmpty(selectedImage)">Process</button></p>
+<p><button @onclick="() => ProcessReceipt(selectedImage)" disabled="@(string.IsNullOrEmpty(selectedImage) || isProcessing)">Process</button></p>
 
 <button onclick="document.getElementById('fileInput').click()">Click to upload</button>
 <InputFile id="fileInput" OnChange="LoadFile" accept=".jpg,.png" style="display:none" multiple />
@@ -62,6 +62,7 @@ else
     private List<string> images = new();
     private string selectedImage = string.Empty;
     private string processResult = string.Empty;
+    private bool isProcessing = false;
 
     protected override void OnInitialized()
     {
@@ -123,13 +124,13 @@ else
         Letter "D": Third reduced VAT rate (0%) (Sp.op.D).
         Letter "E": VAT exemption (Sp.op.E)
 
-        NOT INCLUDE (Skip):
+        NOT INCLUDE (Skip comma separated values and also theirs variations):
         Sp.op.A, Sprzed. opod. PTU A, PTU A,
         Sp.op.B, Sprzed. opod. PTU B, PTU B,
         Sp.op.C, Sprzed. opod. PTU C, PTU C,
         Sp.op.D, Sprzed. opod. PTU D, PTU D,
         Sp.op.E, Sprzed. opod. PTU E, PTU E,
-        SUMA PTU, 
+        SUMA PTU, Podatek PTU
         ZAPLACONO GOTOWKA PLN, ZAPŁACONO GOTOWKA PLN
         """
     );
@@ -156,7 +157,12 @@ else
 
     private async Task ProcessReceipt(string fileName)
     {
-        var stringBuilder = new StringBuilder();
+        isProcessing = true;
+        StateHasChanged();
+
+        try
+        {
+            var stringBuilder = new StringBuilder();
 
         message.AdditionalProperties = new() { ["receipt-schema.json"] = File.ReadAllText("Metadata/receipt-schema.json") };
         message.Contents.Add(new DataContent(File.ReadAllBytes($"wwwroot/Uploads/{fileName}"), $"image/{Path.GetExtension(fileName).Substring(1)}"));
@@ -211,6 +217,12 @@ else
 
         processResult = stringBuilder.ToString();
         StateHasChanged();
+        }
+        finally
+        {
+            isProcessing = false;
+            StateHasChanged();
+        }
     }
 
     private long maxFileSize = 100 * 1024 * 1024;
