@@ -1,7 +1,7 @@
 ﻿using Json.Schema;
 using System.Text.Json;
 
-namespace AiModelOrchestrationSolution.Web.Validators;
+namespace AiModelOrchestration.Web.Validators;
 
 public class JsonValidator(string schema)
 {

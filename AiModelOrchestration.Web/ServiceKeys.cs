@@ -1,4 +1,4 @@
-﻿namespace AiModelOrchestrationSolution.Web;
+﻿namespace AiModelOrchestration.Web;
 
 public static class ServiceKeys
 {

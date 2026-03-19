@@ -1,4 +1,4 @@
-﻿namespace AiModelOrchestrationSolution.Web.Services;
+﻿namespace AiModelOrchestration.Web.Services;
 
 public class ImageService(IWebHostEnvironment env)
 {

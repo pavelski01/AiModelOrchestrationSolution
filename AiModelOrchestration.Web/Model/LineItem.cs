@@ -1,4 +1,4 @@
-﻿namespace AiModelOrchestrationSolution.Web.Model;
+﻿namespace AiModelOrchestration.Web.Model;
 
 public class LineItem
 {

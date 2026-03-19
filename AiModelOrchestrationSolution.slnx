@@ -1,5 +1,5 @@
 <Solution>
   <Project Path="AiModelOrchestration.ServiceDefaults/AiModelOrchestration.ServiceDefaults.csproj" />
   <Project Path="AiModelOrchestration/AiModelOrchestration.csproj" />
-  <Project Path="AiModelOrchestrationSolution.Web/AiModelOrchestrationSolution.Web.csproj" />
+  <Project Path="AiModelOrchestration.Web/AiModelOrchestration.Web.csproj" />
 </Solution>

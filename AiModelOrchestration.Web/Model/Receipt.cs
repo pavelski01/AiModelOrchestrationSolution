@@ -1,7 +1,7 @@
-﻿namespace AiModelOrchestrationSolution.Web.Model;
+﻿namespace AiModelOrchestration.Web.Model;
 
 using System.Text.Json;
-using AiModelOrchestrationSolution.Web.Validators;
+using AiModelOrchestration.Web.Validators;
 
 public class Receipt
 {

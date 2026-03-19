@@ -1,6 +1,6 @@
-using AiModelOrchestrationSolution.Web;
-using AiModelOrchestrationSolution.Web.Components;
-using AiModelOrchestrationSolution.Web.Services;
+using AiModelOrchestration.Web.Services;
+using AiModelOrchestration.Web;
+using AiModelOrchestration.Web.Components;
 
 var builder = WebApplication.CreateBuilder(args);
 
